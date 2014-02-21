@@ -53,6 +53,10 @@ Xflow.initAnonymousOperator = function(name, data){
     return data;
 }
 
+Xflow.isOperatorAsync = function(operator){
+    return !!operator.evaluate_async;
+}
+
 Xflow.getOperator = function(name, platform){
     platform = platform || Xflow.PLATFORM.JAVASCRIPT;
 
