@@ -197,7 +197,7 @@ function transformPose(light, position, direction) {
 }
 
 function transformDefault(target, offset, light) {
-    target["on"][offset] = light.visible;
+    target["on"][offset] = light.visible && target["on"][offset];
 }
 
 
