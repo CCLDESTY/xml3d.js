@@ -138,6 +138,8 @@ LightModel.prototype = {
         if (nfobject.near <= 0.001)
             nfobject.near = 1.0;
         nfobject.far  += expand;
+        if((nfobject.far < 50)&&(nfobject.near > 1.0))
+            nfobject.near = 1.0;            //blocky shadow when near=10 far=22
     },
 
     getLightData: function (target, offset) {
@@ -328,7 +330,6 @@ XML3D.createClass(DirectionalLightModel, LightModel, {
                     far:  -sceneBoundingBox[2]};
         // Expand the view frustum a bit to ensure 2D objects parallel to the camera are rendered
         this._expandNearFar(nf);
-
         return new Frustum(nf.near, nf.far, 0, this.fovy, aspect, true);
     },
 
