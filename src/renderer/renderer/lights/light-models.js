@@ -337,54 +337,39 @@ XML3D.createClass(DirectionalLightModel, LightModel, {
 
 
 
-    getLightViewMatrix: function (mat4) {
-        var manager = this.light.scene.lights;
-        var entry = manager.getModelEntry(this.id);
+    getLightViewMatrix: function (mat4) {        var entry = this.light.scene.lights.getModelEntry(this.id);
         var p_dir = entry.parameters["direction"];
         var p_pos = entry.parameters["position"];
+        var bb =        new XML3D.math.bbox.create();
+        var bbSize =    XML3D.math.vec3.create();
+        var bbCenter =  XML3D.math.vec3.create();
+        var off =       XML3D.math.vec3.create();
 
-        var bb = new XML3D.math.bbox.create();
         this.light.scene.getBoundingBox(bb);
-        var bbSize = XML3D.math.vec3.create();
-        var bbCenter = XML3D.math.vec3.create();
-        var off = XML3D.math.vec3.create();
         XML3D.math.bbox.center(bbCenter, bb);
         XML3D.math.bbox.size(bbSize, bb);
-        var d = XML3D.math.vec3.len(bbSize); //diameter of bounding sphere of the scene
+        var d = XML3D.math.vec3.len(bbSize);    //diameter of bounding sphere of the scene
         XML3D.math.vec3.scale(off, p_dir, -0.55 * d); //enlarge a bit on the radius of the scene
         p_pos = XML3D.math.vec3.add(p_pos, bbCenter, off);
-        entry.parameters["position"] = p_pos;
+        entry.parameters["position"]  = p_pos;  //set updated parameter
 
 
-        //create new transformation matrix depending on the updated parameters
-        XML3D.math.mat4.identity(mat4);
-        var lookat_mat = XML3D.math.mat4.create();
-        var top_vec = XML3D.math.vec3.fromValues(0.0, 1.0, 0.0);
-        if ((p_dir[0] == 0.0) && (p_dir[2] == 0.0)) //check if top_vec colinear with direction
-            top_vec = XML3D.math.vec3.fromValues(0.0, 0.0, 1.0);
-        var up_vec = XML3D.math.vec3.create();
-        var dir_len = XML3D.math.vec3.len(p_dir);
-        XML3D.math.vec3.scale(up_vec, p_dir, -XML3D.math.vec3.dot(top_vec, p_dir) / (dir_len * dir_len));
-        XML3D.math.vec3.add(up_vec, up_vec, top_vec);
-        XML3D.math.vec3.normalize(up_vec, up_vec);
-        XML3D.math.mat4.lookAt(lookat_mat, XML3D.math.vec3.fromValues(0.0, 0.0, 0.0), p_dir, up_vec);
-        XML3D.math.mat4.invert(lookat_mat, lookat_mat);
-        XML3D.math.mat4.translate(mat4, mat4, p_pos);
-        XML3D.math.mat4.multiply(mat4, mat4, lookat_mat);
+        //calculate view matrix from modified parameters
+        var q_rot = XML3D.math.quat.rotationTo(XML3D.math.quat.create(),c_standardDirection, p_dir);
+        // Create matrix from rotation and translation
+        var trans = XML3D.math.mat4.fromRotationTranslation(XML3D.math.mat4.create(), q_rot, p_pos);
+        // Invert:  light => world
+        XML3D.math.mat4.invert(mat4, trans);
 
-        var bb = new XML3D.math.bbox.create();
-        this.light.scene.getBoundingBox(bb);
-        XML3D.math.bbox.transform(bb, mat4, bb);
-        var bbSize = XML3D.math.vec3.create();
+        //transform bounding box to lightviewspace and compute a fovy for updated values
+        //this.light.scene.getBoundingBox(bb); wasnt modified since last get
+        XML3D.math.bbox.transform(bb, trans, bb); //trans: world to lightspace
         XML3D.math.bbox.size(bbSize, bb);
         var max = (bbSize[0] > bbSize[1]) ? bbSize[0] : bbSize[1];
-        max = 0.55 * (max);//enlarge 10percent to make sure nothing gets cut off
         this.fovy = Math.atan(max)*2.0;
 
-        entry.parameters["direction"] = p_dir;
+        //updated positionparamet
         entry.parameters["position"]  = p_pos;
-
-        XML3D.math.mat4.invert(mat4, mat4);
     }
 
 });
