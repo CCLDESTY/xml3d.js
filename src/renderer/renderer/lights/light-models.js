@@ -135,6 +135,8 @@ LightModel.prototype = {
     _expandNearFar:function(nfobject){
         var expand = Math.max((nfobject.far - nfobject.near) * 0.30, 0.05);
         nfobject.near -= expand;
+        if (nfobject.near <= 0.001)
+            nfobject.near = 1.0;
         nfobject.far  += expand;
     },
 
@@ -212,13 +214,12 @@ var PointLightModel = function (dataNode, light) {
 
 XML3D.createClass(PointLightModel, LightModel, {
     getFrustum: function (aspect, sceneBoundingBox) {
-        var orthogonal = false;
         var entry = this.light.scene.lights.getModelEntry(this.id);
 
         if (XML3D.math.bbox.isEmpty(sceneBoundingBox)) {
             entry.parameters["nearFar"][0] = 1.0;
             entry.parameters["nearFar"][1] = 110.0;
-            return new Frustum(1.0, 110.0, 0, this.fovy, aspect, orthogonal)
+            return new Frustum(1.0, 110.0, 0, this.fovy, aspect, false)
         }
 
 
@@ -227,15 +228,19 @@ XML3D.createClass(PointLightModel, LightModel, {
         XML3D.math.bbox.transform(sceneBoundingBox, t_mat, sceneBoundingBox);
 
         var nf = {
-            near: -sceneBoundingBox[5], far: -sceneBoundingBox[2]
+            near: 1.0, far: 10.0
         };
+        for(var i=0; i<6; i++)
+        {
+            var s = Math.abs(sceneBoundingBox[i]);
+            nf.far = s > nf.far? s : nf.far;
+        }
         // Expand the view frustum a bit to ensure 2D objects parallel to the camera are rendered
         this._expandNearFar(nf);
-
-        entry.parameters["nearFar"][0] = 1.0;
+        entry.parameters["nearFar"][0] = nf.near;
         entry.parameters["nearFar"][1] = nf.far;
 
-        return new Frustum(1.0, nf.far, 0, this.fovy, aspect, orthogonal);
+        return new Frustum(nf.near, nf.far, 0, this.fovy, aspect, false);
     },
 
     transformParameters: function (target, offset) {
@@ -278,7 +283,7 @@ XML3D.createClass(SpotLightModel, LightModel, {
         // Expand the view frustum a bit to ensure 2D objects parallel to the camera are rendered
         this._expandNearFar(nf);
 
-        return new Frustum(1.0, nf.far, 0, this.fovy, aspect, false);
+        return new Frustum(nf.near, nf.far, 0, this.fovy, aspect, false);
     },
 
     transformParameters: function (target, offset) {
@@ -311,10 +316,8 @@ var DirectionalLightModel = function (dataNode, light) {
 
 XML3D.createClass(DirectionalLightModel, LightModel, {
     getFrustum: function(aspect, sceneBoundingBox) {
-        var orthogonal = true;
-
         if (XML3D.math.bbox.isEmpty(sceneBoundingBox)) {
-            return new Frustum(1.0, 110.0, 0, this.fovy, aspect, orthogonal)
+            return new Frustum(1.0, 110.0, 0, this.fovy, aspect, true)
         }
 
         var t_mat = XML3D.math.mat4.create();
@@ -326,7 +329,7 @@ XML3D.createClass(DirectionalLightModel, LightModel, {
         // Expand the view frustum a bit to ensure 2D objects parallel to the camera are rendered
         this._expandNearFar(nf);
 
-        return new Frustum(1.0, nf.far, 0, this.fovy, aspect, orthogonal);
+        return new Frustum(nf.near, nf.far, 0, this.fovy, aspect, true);
     },
 
     transformParameters: function (target, offset) {
